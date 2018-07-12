@@ -21,6 +21,9 @@ public class GameState
 	private String _lastIncomingIp;
 	private String _previousMap;
 	private String _currentMap = "";
+
+	private long _mapStartMillis;
+	private long _mapEndMillis;
 	
 	private boolean _isRunning = false;
 	private boolean _isMapInit = true;
@@ -65,9 +68,15 @@ public class GameState
 		return _serverLoadedIn;
 	}
 	
-	public void setGameStarted(boolean value)
+	public void matchStart()
 	{
-		_isGameStarted = value;
+		_mapStartMillis = System.currentTimeMillis();
+		_isGameStarted = true;
+	}
+	
+	public void matchEnd()
+	{
+		_mapEndMillis = System.currentTimeMillis();
 	}
 	
 	public boolean isGameStarted()
@@ -88,6 +97,22 @@ public class GameState
 	public void setMapChanging(boolean value)
 	{
 		_isMapChanging = value;
+
+		if (Config.SAVE_MAP_STATS_TO_DB)
+		{
+			String pm = getPreviousMap();
+			String cm = getCurrentMap();
+
+			if (pm == null || pm.isEmpty() || pm.equalsIgnoreCase((cm)))
+				return;
+
+			long duration = 0;
+
+			if (_mapStartMillis > 0 && _mapEndMillis > 0 && _mapEndMillis < _mapStartMillis)
+				duration = _mapEndMillis - _mapStartMillis;
+
+			DatabaseLogger.getInstance().saveMapStat(getCurrentMap(), duration, getOnlineCount());
+		}
 	}
 	
 	public boolean isMapChanging()

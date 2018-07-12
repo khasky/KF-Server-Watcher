@@ -17,18 +17,23 @@ public class KFServerWatcher
 {
 	private static final int ERRORCODE_NORMAL = 0;
 	private static final int ERRORCODE_INTERRUPT = -1;
-	private static final int ERRORCODE_PROCESS_LOST = 1; // steam error
+	private static final int ERRORCODE_PROCESS_LOST = 1; // probably steam error
 	
 	private static long _startMillis = 0;
 	
     public static void main(String[] args)
     {
-		if (Config.load(args[0])) {
-			System.out.println("KFServerWatcher version " + Config.VERSION);
-			launch();
+		if (args[0] == null || args[0].isEmpty())
+		{
+			fail("Cannot start without commandline argument: config path");
 		}
-		else {
-			fail(null);
+		else if (Config.load(args[0]))
+		{
+			launch(false);
+		}
+		else
+		{
+			fail("Config load error");
 		}
     }
 	
@@ -36,12 +41,32 @@ public class KFServerWatcher
 	{
 		if (reason != null && !reason.isEmpty())
 			System.out.println(reason);
+		
 		System.out.println("KFServerWatcher failed to start");
 	}
 	
-	private static void launch()
+	private static void launch(boolean afterCrash)
 	{
 		_startMillis = System.currentTimeMillis();
+		
+		// <!--
+		// DEBUG
+		/* Total number of processors or cores available to the JVM */
+		System.out.println("Available processors (cores): " + Runtime.getRuntime().availableProcessors());
+		
+		System.out.println("CPU cores num: " + Util.getNumberOfCPUCores());
+		
+		/* Total amount of free memory available to the JVM */
+		System.out.println("Free memory (bytes): " + Runtime.getRuntime().freeMemory());
+		
+		/* This will return Long.MAX_VALUE if there is no preset limit */
+		long maxMemory = Runtime.getRuntime().maxMemory();
+		/* Maximum amount of memory the JVM will attempt to use */
+		System.out.println("Maximum memory (bytes): " + (maxMemory == Long.MAX_VALUE ? "no limit" : maxMemory));
+		
+		/* Total memory currently in use by the JVM */
+		System.out.println("Total memory (bytes): " + Runtime.getRuntime().totalMemory());
+		// -->
 		
 		// Check for correct paths from config
 		
@@ -66,13 +91,15 @@ public class KFServerWatcher
 			catch (ArrayIndexOutOfBoundsException e) {}
 		}
 		
-		System.out.println("System path: " + systemPath);
+		if (!afterCrash)
+			System.out.println("System path: " + systemPath);
 		
 		// Get ini path
 		
 		String iniPath = systemPath + Config.SERVER_INI_FILE;
 		
-		System.out.println("ini path: " + iniPath);
+		if (!afterCrash)
+			System.out.println("ini path: " + iniPath);
 		
 		file = new File(iniPath);
 		
@@ -96,7 +123,7 @@ public class KFServerWatcher
 		try {
 			FileInputStream is = new FileInputStream(iniPath);
 			BufferedReader br = new BufferedReader(new InputStreamReader(is));
-			String line = null;
+			String line;
 			
 			while ((line = br.readLine()) != null)
 			{
@@ -131,7 +158,8 @@ public class KFServerWatcher
 			e.printStackTrace();
 		}
 		
-		System.out.println("Readed " + maps.size() + " maps from server ini file");
+		if (!afterCrash)
+			System.out.println("Readed " + maps.size() + " maps from server ini file");
 		
 		// Set random map if not selected
 		
@@ -141,7 +169,10 @@ public class KFServerWatcher
 		{
 			Random rand = new Random();
 			map = maps.get(rand.nextInt(maps.size()));
-			System.out.println("Setting map to: " + map);
+			
+			if (!afterCrash)
+				System.out.println("Setting map to: " + map);
+			
 			rand = null;
 		}
 		
@@ -163,15 +194,14 @@ public class KFServerWatcher
 					mutators += ",";
 			}
 			
-			System.out.println("Added " + Config.MUTATORS.size() + " mutators to the server");
-		}
-		else
-		{
-			System.out.println("There are no server mutators");
+			if (!afterCrash)
+				System.out.println("Added " + Config.MUTATORS.size() + " mutators to the server");
 		}
 		
 		// Create params list
-		
+
+		List<String> procArgs = new ArrayList<>();
+
 		String params = map + ".rom" 
 			+ "?game=" + Config.GAME_TYPE 
 			+ "?VACSecured=" + (Config.VAC_SECURED ? "true" : "false") 
@@ -180,117 +210,121 @@ public class KFServerWatcher
 			+ "?AdminName=" + Config.ADMIN_NAME 
 			+ "?AdminPassword=" + Config.ADMIN_PASSWORD 
 			+ "?ini=" + Config.SERVER_INI_FILE;
-		
-		String[] args = {
+
+		procArgs.add(Config.SERVER_UCC_PATH);
+		procArgs.add("server");
+		procArgs.add(params);
+		procArgs.add("-log=" + Config.SERVER_LOG_FILE);
+
+		/*
+		String[] args =
+		{
 			Config.SERVER_UCC_PATH,
 			"server",
 			params,
-			"-log=" + Config.SERVER_LOG_FILE
+			"-log=" + Config.SERVER_LOG_FILE,
+			priority
 		};
+		*/
 		
-		System.out.println("Params:");
-		System.out.println(params);
+		if (!afterCrash)
+		{
+			System.out.println("Params:");
+			System.out.println(params);
+		}
 		
 		// Start ucc
 		
-		System.out.println("Initializing...\n");
+		if (!afterCrash)
+			System.out.println("Initializing...\n");
 		
-		Process proc = null;
+		Process uccProcess;
 		int exitCode = ERRORCODE_NORMAL;
-		boolean failed = false;
 		
-		try {
-			ProcessBuilder pb = new ProcessBuilder(args[0], args[1], args[2], args[3]);
-			proc = pb.start();
-			
-			try {
-				InputStreamReader is = new InputStreamReader(proc.getInputStream());
+		try
+		{
+			//String procCommand = String.join(" ", procArgs);
+			//ProcessBuilder pb = new ProcessBuilder(args[0], args[1], args[2], args[3], args[4]);
+			ProcessBuilder pb = new ProcessBuilder(procArgs);
+			uccProcess = pb.start();
+
+			try
+			{
+				InputStreamReader is = new InputStreamReader(uccProcess.getInputStream());
 				BufferedReader br = new BufferedReader(is);
 				ProcessReader reader = new ProcessReader(br);
 				
 				reader.start();
 				
-				try {
-					exitCode = proc.waitFor();
+				try
+				{
+					exitCode = uccProcess.waitFor();
 				}
-				catch (InterruptedException e) {
+				catch (InterruptedException e3)
+				{
 					System.out.println("Reader thread was interrupted");
+					e3.printStackTrace();
+					
 					exitCode = ERRORCODE_INTERRUPT;
 				}
 			}
-			catch (Exception e) {
-				failed = true;
+			catch (Exception e2)
+			{
 				System.out.println("Error on start reading process thread");
-				e.printStackTrace();
+				e2.printStackTrace();
 			}
 		}
-		catch (Exception e) {
-			failed = true;
+		catch (Exception e1)
+		{
 			System.out.println("Error on process start: " + ucc);
-			e.printStackTrace();
+			e1.printStackTrace();
 		}
 		
-		if (failed)
-		{
-			fail(null);
-		}
-		else if (exitCode != ERRORCODE_NORMAL)
+		if (exitCode != ERRORCODE_NORMAL)
 		{
 			if (Config.CRASH_LOG_TO_FILE_ENABLED)
 			{
-				String currentMap = GameState.getInstance().getCurrentMap();
+				String message = Config.SERVER_UCC_PATH + " crashed with code " + exitCode;
 				
-				int online = GameState.getInstance().getOnlineCount();
+				message += ", map: " + GameState.getInstance().getCurrentMap();
+				message += ", online: " + GameState.getInstance().getOnlineCount();
+				message += ", uptime: " + getUpTime(System.currentTimeMillis() - _startMillis);
 				
-				String uptime = getUpTime(System.currentTimeMillis() - _startMillis);
-				
-				String message = Config.SERVER_UCC_PATH + " crashed with code " + exitCode + " (map: " + currentMap + ", online: " + online + ", uptime: " + uptime + ")";
+				OutputHandler.getInstance().printSingle(message, true);
 				
 				FileLogger.getInstance().write(Config.CRASH_LOG_TO_FILE_PATH, Config.CRASH_LOG_FILE_MAX_SIZE_KB, message);
 			}
 			
-			launch();
+			launch(true);
 		}
 	}
 	
 	private static String getUpTime(long millis)
 	{
-		int seconds = (int)(millis / 1000) % 60;
-		int minutes = (int)((millis / (1000*60)) % 60);
-		int hours = (int)((millis / (1000*60*60)) % 24);
-		int days = (int)((millis / (1000*60*60*24)) % 365);
-		int years = (int)(millis / 1000*60*60*24*365);
+		int secondsInMinute = 60;
+		int secondsInHour = 60 * secondsInMinute;
+		int secondsInDay = 24 * secondsInHour;
 		
-		ArrayList<String> timeArray = new ArrayList<String>();
+		double seconds = millis / 1000.0;
 		
-		if (years > 0)
-			timeArray.add(String.valueOf(years)   + "y");
+		String out = "";
+		
+		double days = seconds / secondsInDay;
 		
 		if (days > 0)
-			timeArray.add(String.valueOf(days) + "d");
+			out += (int) days + "d ";
+		
+		double hourSeconds = seconds % secondsInDay;
+		double hours = Math.floor(hourSeconds / secondsInHour);
 		
 		if (hours > 0)
-			timeArray.add(String.valueOf(hours) + " h");
+			out += (int) hours + "h ";
 		
-		if (minutes > 0)
-			timeArray.add(String.valueOf(minutes) + "m");
+		double minuteSeconds = hourSeconds % secondsInHour;
+		double minutes = Math.floor(minuteSeconds / secondsInMinute);
 		
-		if (seconds > 0)
-			timeArray.add(String.valueOf(seconds) + "s");
+		out += (int) minutes + "m";
 		
-		String time = "";
-		
-		for (int i = 0; i < timeArray.size(); i++)
-		{
-			time = time + timeArray.get(i);
-			
-			if (i != timeArray.size() - 1)
-				time = time + ", ";
-		}
-		
-		if (time.isEmpty())
-			time = "0 sec";
-		
-		return time;
+		return out;
 	}
 }

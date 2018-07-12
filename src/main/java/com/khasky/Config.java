@@ -15,8 +15,6 @@ import java.util.Properties;
  */
 public final class Config
 {
-	public static String VERSION = "0.3.8";
-	
 	public static String ADMIN_NAME;
 	public static String ADMIN_PASSWORD;
 	
@@ -25,7 +23,7 @@ public final class Config
 	public static String SERVER_LOG_FILE;
 	
 	public static String STARTING_MAP;
-	public static List<String> MUTATORS = new ArrayList<String>();
+	public static List<String> MUTATORS = new ArrayList<>();
 	public static int MAX_PLAYERS;
 	public static String GAME_TYPE;
 	public static boolean VAC_SECURED;
@@ -42,13 +40,17 @@ public final class Config
 	public static boolean CRASH_LOG_TO_FILE_ENABLED;
 	public static String CRASH_LOG_TO_FILE_PATH;
 	public static int CRASH_LOG_FILE_MAX_SIZE_KB;
+
+	public static String MYSQL_URL;
+	public static String MYSQL_USER;
+	public static String MYSQL_PASSWORD;
+
+	public static boolean SAVE_MAP_STATS_TO_DB;
 	
 	public static boolean load(String configPath)
 	{
-		if (configPath == null || configPath.isEmpty())
-			return false;
-		
-		try {
+		try
+		{
 			Properties p = new Properties();
 			InputStream is = new FileInputStream(new File(configPath));
 			p.load(is);
@@ -60,8 +62,10 @@ public final class Config
 			
 			while ((line = br.readLine()) != null)
 			{
-				if (line.toLowerCase().startsWith("mutator")) {
+				if (line.toLowerCase().startsWith("mutator"))
+				{
 					String mutator = line.split("=")[1].trim();
+					
 					if (!mutator.isEmpty())
 						MUTATORS.add(mutator);
 				}
@@ -69,7 +73,7 @@ public final class Config
 			
 			br.close();
 			fis.close();
-			
+
 			ADMIN_NAME = p.getProperty("AdminName", "Admin");
 			ADMIN_PASSWORD = p.getProperty("AdminPassword", "12345");
 			
@@ -94,10 +98,17 @@ public final class Config
 			CRASH_LOG_TO_FILE_ENABLED = Boolean.parseBoolean(p.getProperty("CrashFileLogEnabled", "true"));
 			CRASH_LOG_TO_FILE_PATH = p.getProperty("CrashFileLogPath", "kfsw_crash.log");
 			CRASH_LOG_FILE_MAX_SIZE_KB = Integer.parseInt(p.getProperty("CrashFileLogMaxSizeKb", "512"));
-			
+
+			MYSQL_URL = p.getProperty("MySqlUrl", "jdbc:mysql://localhost:3306/killingfloor");
+			MYSQL_USER = p.getProperty("MySqlUser", "root");
+			MYSQL_PASSWORD = p.getProperty("MySqlPassword", "root");
+
+			SAVE_MAP_STATS_TO_DB = Boolean.parseBoolean(p.getProperty("SaveMapStatsToDb", "false"));
+
 			return true;
 		}
-		catch (Exception e) {
+		catch (Exception e)
+		{
 			System.out.println("Failed to load config: " + e.getMessage());
 			e.printStackTrace();
 		}

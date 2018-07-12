@@ -82,7 +82,7 @@ public class OutputHandler
 		}
 	}
 	
-	private void printSingle(String line, boolean bTime)
+	public void printSingle(String line, boolean bTime)
 	{
 		if (!_isClearOutput) {
 			System.out.println(TIME_SPACER + ACTIVITY_NEXT);
@@ -215,6 +215,7 @@ public class OutputHandler
 		// Map change started
 		else if (line.startsWith("PreClientTravel"))
 		{
+			GameState.getInstance().matchEnd();
 			GameState.getInstance().setMapChanging(true);
 			
 			String message = "Map changing in progress...";
@@ -244,7 +245,7 @@ public class OutputHandler
 		// First wave started
 		else if (line.startsWith("START MATCH"))
 		{
-			GameState.getInstance().setGameStarted(true);
+			GameState.getInstance().matchStart();
 			
 			String message = "Game started";
 			printSingle(message, true);

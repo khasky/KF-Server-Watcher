@@ -1,7 +1,7 @@
 @echo off
 set servername=Killing Floor Dedicated
-set config=kfsw.ini
+set config=kfsw.properties
 cls
 title %servername% - KFServerWatcher
-java -jar KFServerWatcher-v0.3.8.jar %config%
+java -jar kf-server-watcher-%version%.jar %config%
 pause

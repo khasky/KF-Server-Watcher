@@ -1,0 +1,58 @@
+apply plugin: 'java'
+
+def buildVersion = '0.4.0'
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	compile 'mysql:mysql-connector-java:5.1.40'
+}
+
+jar {
+    baseName = 'kf-server-watcher'
+    version = buildVersion
+	manifest {
+		attributes (
+			'Class-Path': configurations.compile.collect { it.getName() }.join(' '),
+			'Main-Class': 'com.khasky.KFServerWatcher'
+		)
+	}
+}
+
+task copyTask {
+	doLast {
+		copy {
+			
+			println 'Copying libraries'
+			from 'build/libs'
+			into 'build'
+			
+			from configurations.runtime
+			into '$buildDir'
+			
+			println 'Copying configs'
+			from 'config'
+			into 'build'
+			
+			println 'Copying executables'
+			String content = new File('dist/kfsw.bat').getText('UTF-8')
+			content = content.replaceAll('%version%', buildVersion)
+			new File('build/kfsw.bat').write(content, 'UTF-8')
+		}
+	}
+}
+
+task cleanTask () {
+	doFirst {
+		//delete fileTree(dir: 'build', exclude: 'gameserver.zip')
+		
+		file('build/classes').deleteDir()
+		file('build/libs').deleteDir()
+		file('build/tmp').deleteDir()
+	}
+}
+
+build.dependsOn(copyTask)
+build.finalizedBy(cleanTask)
