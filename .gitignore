@@ -1,3 +1,5 @@
-/snapshots
-.idea
-README_dev.md
+.classpath
+.project
+.settings
+/target
+*.7z
